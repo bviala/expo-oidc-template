@@ -1,14 +1,17 @@
 import { Image } from 'expo-image';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
 import Login from '@/components/login';
-import { LoginComponent } from '@/components/loginState';
+import Logout from '@/components/logout';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useAuthContext } from '@/context/authProvider';
 
 export default function HomeScreen() {
+  const { entraUser } = useAuthContext();
+
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -20,14 +23,22 @@ export default function HomeScreen() {
       }>
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
+            {
+                entraUser ?
+                    <View>
+                        <ThemedText>Logged in as {entraUser!.given_name! + ' ' + entraUser!.family_name!}</ThemedText>
+                        <Logout/>
+                    </View>
+                    :
+                    <View>
+                        <ThemedText>Not logged in</ThemedText>
         <Login/>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <LoginComponent/>
-      </ThemedView>
+
+                    </View>
+            }
+        </ThemedView>
     </ParallaxScrollView>
   );
 }

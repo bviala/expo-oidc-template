@@ -1,6 +1,7 @@
-import { ACCESS_TOKEN_KEY, CODE_VERIFIER_KEY, getCliendId, getDiscoveryDocument, getRedirectUri, ID_TOKEN_KEY, REFRESH_TOKEN_KEY } from '@/utils/authUtils';
-import { storeGetItem, storeSetItem } from '@/utils/secureStorage';
-import { exchangeCodeAsync, useAuthRequest } from 'expo-auth-session';
+import { useAuthContext } from '@/context/authProvider';
+import { CODE_VERIFIER_KEY, getCliendId, getDiscoveryDocument, getRedirectUri } from '@/utils/authUtils';
+import { storeSetItem } from '@/utils/secureStorage';
+import { useAuthRequest } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect } from 'react';
 import { Button } from 'react-native';
@@ -9,6 +10,8 @@ import { Button } from 'react-native';
 WebBrowser.maybeCompleteAuthSession();
 
 export default function Login() {
+  const { handleAuthCallback } = useAuthContext()
+
   const [request, response, promptAsync] = useAuthRequest(
     {
       clientId: getCliendId(),
@@ -28,48 +31,7 @@ export default function Login() {
     promptAsync()
   }
 
-  const handleAuthCallback = async (code: string) => {
-
-    const codeVerifier = await storeGetItem(CODE_VERIFIER_KEY);
-
-    if (!codeVerifier) {
-        throw new Error('AUTH CALLBACK ERROR: Code verifier not found.');
-    }
-
-    try {
-      const tokenResponse = await exchangeCodeAsync(
-        {
-          clientId: getCliendId(),
-          code: code,
-          redirectUri: getRedirectUri(),
-          extraParams: {
-            code_verifier: codeVerifier,
-          },
-        },
-        getDiscoveryDocument(),
-      );
-
-      if(tokenResponse.idToken) {
-        console.log("🔐 TOKEN EXCHANGE SUCCESS: ID TOKEN")
-        await storeSetItem(ID_TOKEN_KEY, tokenResponse.idToken)
-      }
-
-      if(tokenResponse.accessToken) {
-        console.log("🔐 TOKEN EXCHANGE SUCCESS: ACCESS TOKEN")
-        await storeSetItem(ACCESS_TOKEN_KEY, tokenResponse.accessToken)
-      }
-      
-      if (tokenResponse.refreshToken) {
-        console.log("🔐 TOKEN EXCHANGE SUCCESS: REFRESH TOKEN")
-        await storeSetItem(REFRESH_TOKEN_KEY, tokenResponse.refreshToken)
-      }
-
-      console.log("")
-    } catch(error) {
-      console.error(error)
-    }
-
-  }
+  
 
   useEffect(() => {
     if (response?.type === 'success') {
@@ -77,7 +39,7 @@ export default function Login() {
 
       handleAuthCallback(code)
     }
-  }, [response]);
+  }, [handleAuthCallback, response]);
 
   return (
     <Button

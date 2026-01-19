@@ -1,12 +1,14 @@
-import { ACCESS_TOKEN_KEY, EntraTokenPayload } from '@/utils/authUtils';
+import { ACCESS_TOKEN_KEY, CODE_VERIFIER_KEY, EntraTokenPayload, getCliendId, getDiscoveryDocument, getRedirectUri, ID_TOKEN_KEY, REFRESH_TOKEN_KEY } from '@/utils/authUtils';
+import { exchangeCodeAsync } from 'expo-auth-session';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { storeGetItem } from '../utils/secureStorage';
-
+import { storeDeleteItem, storeGetItem, storeSetItem } from '../utils/secureStorage';
 
 type AuthContextType = {
     entraUser: EntraTokenPayload | null;
     isAuthInitPending: boolean;
     initAuth: () => Promise<void>;
+    logout: () => void;
+    handleAuthCallback: (authorizationCode: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -34,13 +36,65 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('🚀 initializing auth');
         
         const token = await getAccessToken();
-        console.log("token: " + token)
+
         if (token) {
             const entraUser = getEntraUser(token);
             setEntraUser(entraUser);
+            console.log('🔐 Found valid token and set user')
         }
 
         setIsAuthInitPending(false);
+    }
+
+    const handleAuthCallback = async (authorizationCode: string) => {
+
+    const codeVerifier = await storeGetItem(CODE_VERIFIER_KEY);
+
+    if (!codeVerifier) {
+        throw new Error('AUTH CALLBACK ERROR: Code verifier not found.');
+    }
+
+    try {
+      const tokenResponse = await exchangeCodeAsync(
+        {
+          clientId: getCliendId(),
+          code: authorizationCode,
+          redirectUri: getRedirectUri(),
+          extraParams: {
+            code_verifier: codeVerifier,
+          },
+        },
+        getDiscoveryDocument(),
+      );
+
+      console.log("🔐 TOKEN EXCHANGE SUCCESS:")
+      if(tokenResponse.idToken) {
+        console.log("\tGOT ID TOKEN")
+        await storeSetItem(ID_TOKEN_KEY, tokenResponse.idToken)
+    }
+    
+    if(tokenResponse.accessToken) {
+        console.log("\tGOT ACCESS TOKEN")
+        await storeSetItem(ACCESS_TOKEN_KEY, tokenResponse.accessToken)
+    }
+    
+    if (tokenResponse.refreshToken) {
+        console.log("\tGOT REFRESH TOKEN")
+        await storeSetItem(REFRESH_TOKEN_KEY, tokenResponse.refreshToken)
+      }
+
+      initAuth()
+    } catch(error) {
+      console.error(error)
+    }
+
+  }
+
+    const logout = () => {
+        storeDeleteItem(ACCESS_TOKEN_KEY)
+        storeDeleteItem(ID_TOKEN_KEY)
+        storeDeleteItem(REFRESH_TOKEN_KEY)
+        setEntraUser(null)
     }
 
     useEffect(() => {
@@ -52,6 +106,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         entraUser,
         isAuthInitPending,
         initAuth,
+        logout,
+        handleAuthCallback
     };
 
     return (

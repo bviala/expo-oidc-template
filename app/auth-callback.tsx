@@ -1,9 +1,8 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useEffect } from "react";
 
-
+// This route is a workaround to Entra ID not accepting app root URI as redirection URI (clariceexpo://) Only needed for Android as iOS doesn't redirect
 export default function AuthCallback() {
-    const params = useLocalSearchParams();
     const router = useRouter();
 
     useEffect(() => {
@@ -12,30 +11,6 @@ export default function AuthCallback() {
     }, []);
     
     const handleAuthCallback = async () => {
-        /* if (!params.code) {
-            throw new Error("AUTH CALLBACK ERROR: No authorization code in params")
-        }
-
-        const codeVerifier = await storeGetItem(CODE_VERIFIER_KEY);
-
-        if (!codeVerifier) {
-            throw new Error('AUTH CALLBACK ERROR: Code verifier not found.');
-        }
-
-        const tokenResponse = await exchangeCodeAsync(
-            {
-                clientId: getCliendId(),
-                code: params.code as string,
-                redirectUri: getRedirectUri(),
-                extraParams: {
-                code_verifier: codeVerifier,
-                },
-            },
-            getDiscoveryDocument(),
-        );
-
-        console.log("🔐 TOKEN EXCHANGE SUCCESS: " + tokenResponse.idToken) */
-
         router.replace('/')
     }
 }
