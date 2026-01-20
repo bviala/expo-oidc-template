@@ -1,12 +1,10 @@
-import { ACCESS_TOKEN_KEY, CODE_VERIFIER_KEY, EntraTokenPayload, getCliendId, getDiscoveryDocument, getRedirectUri, ID_TOKEN_KEY, REFRESH_TOKEN_KEY } from '@/utils/authUtils';
+import { ACCESS_TOKEN_KEY, CODE_VERIFIER_KEY, EntraTokenPayload, getClientId, getDiscoveryDocument, getRedirectUri, ID_TOKEN_KEY, REFRESH_TOKEN_KEY } from '@/utils/authUtils';
 import { exchangeCodeAsync } from 'expo-auth-session';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { storeDeleteItem, storeGetItem, storeSetItem } from '../utils/secureStorage';
 
 type AuthContextType = {
     entraUser: EntraTokenPayload | null;
-    isAuthInitPending: boolean;
-    initAuth: () => Promise<void>;
     logout: () => void;
     handleAuthCallback: (authorizationCode: string) => Promise<void>
 }
@@ -15,7 +13,6 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => { 
     const [entraUser, setEntraUser] = useState<EntraTokenPayload | null>(null);
-    const [isAuthInitPending, setIsAuthInitPending] = useState<boolean>(true);
 
     const getAccessToken = async () => {
         return await storeGetItem(ACCESS_TOKEN_KEY);
@@ -33,7 +30,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const initAuth = async () => {
-        console.log('🚀 initializing auth');
+        console.log('🔐 Initializing auth');
         
         const token = await getAccessToken();
 
@@ -43,52 +40,49 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             console.log('🔐 Found valid token and set user')
         }
 
-        setIsAuthInitPending(false);
     }
 
     const handleAuthCallback = async (authorizationCode: string) => {
+        const codeVerifier = await storeGetItem(CODE_VERIFIER_KEY);
+        if (!codeVerifier) {
+            throw new Error('AUTH CALLBACK ERROR: Code verifier not found.');
+        }
 
-    const codeVerifier = await storeGetItem(CODE_VERIFIER_KEY);
+        try {
+        const tokenResponse = await exchangeCodeAsync(
+            {
+            clientId: getClientId(),
+            code: authorizationCode,
+            redirectUri: getRedirectUri(),
+            extraParams: {
+                code_verifier: codeVerifier,
+            },
+            },
+            getDiscoveryDocument(),
+        );
 
-    if (!codeVerifier) {
-        throw new Error('AUTH CALLBACK ERROR: Code verifier not found.');
+        console.log("🔐 Token exchange success")
+        if(tokenResponse.idToken) {
+            console.log("🔐 Storing id token")
+            await storeSetItem(ID_TOKEN_KEY, tokenResponse.idToken)
+        }
+        
+        if(tokenResponse.accessToken) {
+            console.log("🔐 Storing access token")
+            await storeSetItem(ACCESS_TOKEN_KEY, tokenResponse.accessToken)
+        }
+        
+        if (tokenResponse.refreshToken) {
+            console.log("🔐 Storing refresh token")
+            await storeSetItem(REFRESH_TOKEN_KEY, tokenResponse.refreshToken)
+        }
+
+        initAuth()
+        } catch(error) {
+            console.error(error)
+        }
+
     }
-
-    try {
-      const tokenResponse = await exchangeCodeAsync(
-        {
-          clientId: getCliendId(),
-          code: authorizationCode,
-          redirectUri: getRedirectUri(),
-          extraParams: {
-            code_verifier: codeVerifier,
-          },
-        },
-        getDiscoveryDocument(),
-      );
-
-      console.log("🔐 TOKEN EXCHANGE SUCCESS:")
-      if(tokenResponse.idToken) {
-        console.log("\tGOT ID TOKEN")
-        await storeSetItem(ID_TOKEN_KEY, tokenResponse.idToken)
-    }
-    
-    if(tokenResponse.accessToken) {
-        console.log("\tGOT ACCESS TOKEN")
-        await storeSetItem(ACCESS_TOKEN_KEY, tokenResponse.accessToken)
-    }
-    
-    if (tokenResponse.refreshToken) {
-        console.log("\tGOT REFRESH TOKEN")
-        await storeSetItem(REFRESH_TOKEN_KEY, tokenResponse.refreshToken)
-      }
-
-      initAuth()
-    } catch(error) {
-      console.error(error)
-    }
-
-  }
 
     const logout = () => {
         storeDeleteItem(ACCESS_TOKEN_KEY)
@@ -104,8 +98,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const authContext: AuthContextType = {
         entraUser,
-        isAuthInitPending,
-        initAuth,
         logout,
         handleAuthCallback
     };

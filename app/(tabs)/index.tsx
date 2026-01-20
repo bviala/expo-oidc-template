@@ -7,10 +7,40 @@ import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuthContext } from '@/context/authProvider';
+import { CODE_VERIFIER_KEY, getClientId, getDiscoveryDocument, getRedirectUri } from '@/utils/authUtils';
+import { storeSetItem } from '@/utils/secureStorage';
+import { useAuthRequest } from 'expo-auth-session';
+import { useEffect } from 'react';
 
 export default function HomeScreen() {
-  const { entraUser } = useAuthContext();
+  const { entraUser, handleAuthCallback} = useAuthContext();
 
+  const [request, response, promptAsync] = useAuthRequest(
+    {
+      clientId: getClientId(),
+      scopes: ['openid'],
+      redirectUri: getRedirectUri(), // will be used on Android. On iOS, no redirection happens
+      usePKCE: true
+    },
+    getDiscoveryDocument()
+  );
+
+  const login = async () => {
+    if (!request || !request.codeVerifier) {
+      throw new Error('Auth request or code verifier missing');
+    }
+    // console.log("🔐 CODE VERIFIER: " + request?.codeVerifier)
+    await storeSetItem(CODE_VERIFIER_KEY, request.codeVerifier!);
+    promptAsync()
+  }
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { code } = response.params;
+
+      handleAuthCallback(code)
+    }
+  }, [response]);
 
   return (
     <ParallaxScrollView
@@ -25,19 +55,17 @@ export default function HomeScreen() {
         <ThemedText type="title">Welcome!</ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
-            {
-                entraUser ?
-                    <View>
-                        <ThemedText>Logged in as {entraUser!.given_name! + ' ' + entraUser!.family_name!}</ThemedText>
-                        <Logout/>
-                    </View>
-                    :
-                    <View>
-                        <ThemedText>Not logged in</ThemedText>
-        <Login/>
-
-                    </View>
-            }
+        {
+          entraUser
+            ? <View>
+              <ThemedText>Logged in as {entraUser!.given_name! + ' ' + entraUser!.family_name!}</ThemedText>
+              <Logout/>
+            </View>
+            : <View>
+              <ThemedText>Not logged in</ThemedText>
+              <Login onLogin={login}/>
+            </View>
+        }
         </ThemedView>
     </ParallaxScrollView>
   );

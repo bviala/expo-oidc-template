@@ -17,7 +17,7 @@ export const getDiscoveryDocument = (): DiscoveryDocument => {
     } 
 };
 
-export const getCliendId = (): string => {
+export const getClientId = (): string => {
     if (!process.env.EXPO_PUBLIC_ENTRA_CLIENT_ID) {
         throw new Error('Missing EXPO_PUBLIC_ENTRA_CLIENT_ID environment variable')
     }

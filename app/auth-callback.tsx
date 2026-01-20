@@ -6,11 +6,7 @@ export default function AuthCallback() {
     const router = useRouter();
 
     useEffect(() => {
-        handleAuthCallback();
+        router.replace('/')
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-    
-    const handleAuthCallback = async () => {
-        router.replace('/')
-    }
 }
